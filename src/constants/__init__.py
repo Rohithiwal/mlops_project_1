@@ -67,7 +67,7 @@ MIN_SAMPLES_SPLIT_RANDOM_STATE: int = 99
 MODEL Evaluation related constants
 """
 MODEL_EVALUATION_CHANGED_THRESHOLD_SCORE: float = 0.02
-MODEL_BUCKET_NAME = "my-model-mlopsproj1"
+MODEL_BUCKET_NAME = "my-model-mlops-891612583920"
 MODEL_PUSHER_S3_KEY = "model-registry"
 
 
