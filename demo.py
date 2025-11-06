@@ -7,7 +7,6 @@
 # logging.error("This is an error message.")
 # logging.critical("This is a critical message.")
 
-# --------------------------------------------------------------------------------
 
 # below code is to check the exception config
 # from src.logger import logging
