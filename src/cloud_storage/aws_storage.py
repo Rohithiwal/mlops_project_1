@@ -1,15 +1,12 @@
 import boto3
-from src.configuration.aws_connection import S3Client
-from io import StringIO
-from typing import Union,List
-import os,sys
 from src.logger import logging
-from mypy_boto3_s3.service_resource import Bucket
+from io import StringIO
+from typing import Union, List
+import os, sys
 from src.exception import MyException
 from botocore.exceptions import ClientError
-from pandas import DataFrame,read_csv
+from pandas import DataFrame, read_csv
 import pickle
-
 
 class SimpleStorageService:
     """
@@ -19,23 +16,36 @@ class SimpleStorageService:
 
     def __init__(self):
         """
-        Initializes the SimpleStorageService instance with S3 resource and client
-        from the S3Client class.
+        Initializes the SimpleStorageService instance by explicitly loading credentials 
+        and region from environment variables to prevent SignatureDoesNotMatch errors.
         """
-        s3_client = S3Client()
-        self.s3_resource = s3_client.s3_resource
-        self.s3_client = s3_client.s3_client
+        try:
+            # Explicitly get credentials and region
+            access_key = os.getenv("AWS_ACCESS_KEY_ID")
+            secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+            region_name = os.getenv("AWS_DEFAULT_REGION")
+
+            # Initialize the client explicitly
+            self.s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=region_name
+            )
+            
+            # Initialize the resource explicitly
+            self.s3_resource = boto3.resource(
+                "s3",
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=region_name
+            )
+        except Exception as e:
+            raise MyException(e, sys)
 
     def s3_key_path_available(self, bucket_name, s3_key) -> bool:
         """
         Checks if a specified S3 key path (file path) is available in the specified bucket.
-
-        Args:
-            bucket_name (str): Name of the S3 bucket.
-            s3_key (str): Key path of the file to check.
-
-        Returns:
-            bool: True if the file exists, False otherwise.
         """
         try:
             bucket = self.get_bucket(bucket_name)
@@ -45,19 +55,10 @@ class SimpleStorageService:
             raise MyException(e, sys)
 
     @staticmethod
-    def read_object(object_name: str, decode: bool = True, make_readable: bool = False) -> Union[StringIO, str]:
+    def read_object(object_name: object, decode: bool = True, make_readable: bool = False) -> Union[StringIO, str]:
         """
         Reads the specified S3 object with optional decoding and formatting.
-
-        Args:
-            object_name (str): The S3 object name.
-            decode (bool): Whether to decode the object content as a string.
-            make_readable (bool): Whether to convert content to StringIO for DataFrame usage.
-
-        Returns:
-            Union[StringIO, str]: The content of the object, as a StringIO or decoded string.
         """
-        # logging.info("Entered the read_object method of SimpleStorageService class")
         try:
             # Read and decode the object content if decode=True
             func = (
@@ -66,20 +67,13 @@ class SimpleStorageService:
             )
             # Convert to StringIO if make_readable=True
             conv_func = lambda: StringIO(func()) if make_readable else func()
-            # logging.info("Exited the read_object method of SimpleStorageService class")
             return conv_func()
         except Exception as e:
             raise MyException(e, sys) from e
 
-    def get_bucket(self, bucket_name: str) -> Bucket:
+    def get_bucket(self, bucket_name: str):
         """
         Retrieves the S3 bucket object based on the provided bucket name.
-
-        Args:
-            bucket_name (str): The name of the S3 bucket.
-
-        Returns:
-            Bucket: S3 bucket object.
         """
         logging.info("Entered the get_bucket method of SimpleStorageService class")
         try:
@@ -92,13 +86,6 @@ class SimpleStorageService:
     def get_file_object(self, filename: str, bucket_name: str) -> Union[List[object], object]:
         """
         Retrieves the file object(s) from the specified bucket based on the filename.
-
-        Args:
-            filename (str): The name of the file to retrieve.
-            bucket_name (str): The name of the S3 bucket.
-
-        Returns:
-            Union[List[object], object]: The S3 file object or list of file objects.
         """
         logging.info("Entered the get_file_object method of SimpleStorageService class")
         try:
@@ -114,14 +101,6 @@ class SimpleStorageService:
     def load_model(self, model_name: str, bucket_name: str, model_dir: str = None) -> object:
         """
         Loads a serialized model from the specified S3 bucket.
-
-        Args:
-            model_name (str): Name of the model file in the bucket.
-            bucket_name (str): Name of the S3 bucket.
-            model_dir (str): Directory path within the bucket.
-
-        Returns:
-            object: The deserialized model object.
         """
         try:
             model_file = model_dir + "/" + model_name if model_dir else model_name
@@ -136,10 +115,6 @@ class SimpleStorageService:
     def create_folder(self, folder_name: str, bucket_name: str) -> None:
         """
         Creates a folder in the specified S3 bucket.
-
-        Args:
-            folder_name (str): Name of the folder to create.
-            bucket_name (str): Name of the S3 bucket.
         """
         logging.info("Entered the create_folder method of SimpleStorageService class")
         try:
@@ -155,12 +130,6 @@ class SimpleStorageService:
     def upload_file(self, from_filename: str, to_filename: str, bucket_name: str, remove: bool = True):
         """
         Uploads a local file to the specified S3 bucket with an optional file deletion.
-
-        Args:
-            from_filename (str): Path of the local file.
-            to_filename (str): Target file path in the bucket.
-            bucket_name (str): Name of the S3 bucket.
-            remove (bool): If True, deletes the local file after upload.
         """
         logging.info("Entered the upload_file method of SimpleStorageService class")
         try:
@@ -179,12 +148,6 @@ class SimpleStorageService:
     def upload_df_as_csv(self, data_frame: DataFrame, local_filename: str, bucket_filename: str, bucket_name: str) -> None:
         """
         Uploads a DataFrame as a CSV file to the specified S3 bucket.
-
-        Args:
-            data_frame (DataFrame): DataFrame to be uploaded.
-            local_filename (str): Temporary local filename for the DataFrame.
-            bucket_filename (str): Target filename in the bucket.
-            bucket_name (str): Name of the S3 bucket.
         """
         logging.info("Entered the upload_df_as_csv method of SimpleStorageService class")
         try:
@@ -198,12 +161,6 @@ class SimpleStorageService:
     def get_df_from_object(self, object_: object) -> DataFrame:
         """
         Converts an S3 object to a DataFrame.
-
-        Args:
-            object_ (object): The S3 object.
-
-        Returns:
-            DataFrame: DataFrame created from the object content.
         """
         logging.info("Entered the get_df_from_object method of SimpleStorageService class")
         try:
@@ -217,13 +174,6 @@ class SimpleStorageService:
     def read_csv(self, filename: str, bucket_name: str) -> DataFrame:
         """
         Reads a CSV file from the specified S3 bucket and converts it to a DataFrame.
-
-        Args:
-            filename (str): The name of the file in the bucket.
-            bucket_name (str): The name of the S3 bucket.
-
-        Returns:
-            DataFrame: DataFrame created from the CSV file.
         """
         logging.info("Entered the read_csv method of SimpleStorageService class")
         try:
