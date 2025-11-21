@@ -58,12 +58,21 @@ jobs:
           docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
 
       # FIXED: Stop and remove the old container to free up Port 5000
-      - name: Stop and Remove Existing Container
+  
+      - name: Stop and Remove Old Container
         run: |
+          # Find the ID of the container using Port 5000
+          CONTAINER_ID=$(docker ps -q --filter "publish=5000")
+          
+          # If found, force remove it
+          if [ ! -z "$CONTAINER_ID" ]; then
+            echo "Stopping container $CONTAINER_ID on port 5000..."
+            docker rm -f $CONTAINER_ID
+          fi
+          
+          # Also cleanup by name just in case
           docker stop simple-app || true
           docker rm simple-app || true
-
-      - name: Run Docker Image to serve users
         # FIXED: Added --name simple-app so we can stop it next time
         run: |
           docker run -d --name simple-app -p 5000:5000 \
